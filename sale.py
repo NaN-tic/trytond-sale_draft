@@ -17,7 +17,7 @@ class Sale(metaclass=PoolMeta):
 
         cls._transitions |= set((('processing', 'draft'),))
         cls._buttons['draft']['invisible'] = ~Eval('allow_draft', False)
-        cls._buttons['draft']['depends'] += tuple(['allow_draft'])
+        cls._buttons['draft']['depends'] += ['allow_draft']
 
     @classmethod
     def get_allow_draft(cls, sales, name):
@@ -26,22 +26,21 @@ class Sale(metaclass=PoolMeta):
         for sale in sales:
             if sale.state in ('draft', 'done'):
                 continue
-            moves = [m for line in sale.lines for m in line.moves
-                + line.moves_ignored + line.moves_recreated 
+            moves = [m.id for line in sale.lines for m in line.moves
+                + line.moves_ignored
                 if m.state != 'draft']
-            if moves:
+            moves_recreated = [m.id for line in sale.lines
+                for m in line.moves_recreated]
+            if ((moves and not moves_recreated)
+                        or (moves and moves_recreated
+                            and sorted(moves) != sorted(moves_recreated))):
                 continue
-            shipments = [s for s in sale.shipments
-                if s.state != 'draft']
-            shipment_return = [
-                s for s in sale.shipment_returns if s.state != 'draft']
-            if shipments or shipment_return:
-                continue
-            invoices = [i for i in sale.invoices
+            invoices = [i for i in sale.invoices + sale.invoices_ignored
                 if i.state != 'draft']
-            invoic_liness = [il for line in sale.lines
-                for il in line.invoice_lines if not il.invoice]
-            if invoices or invoic_liness:
+            invoice_recreateds = [i for i in sale.invoices_recreated]
+            if ((invoices and not invoice_recreateds)
+                        or (invoices and invoice_recreateds
+                            and sorted(invoices) != sorted(invoice_recreateds))):
                 continue
             # in case not continue, set to True
             res[sale.id] = True
@@ -55,28 +54,36 @@ class Sale(metaclass=PoolMeta):
         ShipmentReturn = pool.get('stock.shipment.out.return')
         InvoiceLine = pool.get('account.invoice.line')
         Invoice = pool.get('account.invoice')
+        LineRecreated = pool.get('sale.line-recreated-stock.move')
 
         moves = []
         shipments = []
         shipment_return = []
         invoices = []
-        invoic_liness = []
+        invoice_lines = []
         for sale in sales:
-            moves.extend([m for line in sale.lines for m in line.moves
-                if m.state == 'draft' and not m.shipment])
-            shipments.extend([s for s in sale.shipments if s.state == 'draft'])
-            shipment_return.extend(
-                [s for s in sale.shipment_returns if s.state == 'draft'])
-            invoices.extend([il.invoice for line in sale.lines
-                for il in line.invoice_lines
-                if il.invoice and il.invoice.state == 'draft'])
-            invoic_liness.extend([il for line in sale.lines
+            if not sale.allow_draft:
+                continue
+            moves.extend([m for line in sale.lines for m in line.moves])
+            shipments.extend([s for s in sale.shipments])
+            shipment_return.extend([s for s in sale.shipment_returns])
+            invoices.extend([i for i in sale.invoice])
+            invoice_lines.extend([il for line in sale.lines
                 for il in line.invoice_lines if not il.invoice])
-
-        Move.delete(moves)
-        Shipment.delete(shipments)
-        ShipmentReturn.delete(shipment_return)
-        InvoiceLine.delete(invoic_liness)
-        Invoice.delete(invoices)
+        if moves:
+            line_recreateds = LineRecreated.search([
+                    ('move', 'in', moves),
+                    ])
+            if line_recreateds:
+                LineRecreated.delete(line_recreateds)
+            Move.delete(moves)
+        if shipments:
+            Shipment.delete(shipments)
+        if shipment_return:
+            ShipmentReturn.delete(shipment_return)
+        if invoice_lines:
+            InvoiceLine.delete(invoice_lines)
+        if invoices:
+            Invoice.delete(invoices)
 
         super().draft(sales)
