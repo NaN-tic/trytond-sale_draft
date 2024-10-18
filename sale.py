@@ -19,32 +19,15 @@ class Sale(metaclass=PoolMeta):
         cls._buttons['draft']['invisible'] = ~Eval('allow_draft', False)
         cls._buttons['draft']['depends'] += ['allow_draft']
 
-    @classmethod
-    def get_allow_draft(cls, sales, name):
-        res = dict((x.id, False) for x in sales)
-
-        for sale in sales:
-            if sale.state in ('draft', 'done'):
-                continue
-            moves = [m.id for line in sale.lines for m in line.moves
-                + line.moves_ignored
-                if m.state != 'draft']
-            moves_recreated = [m.id for line in sale.lines
-                for m in line.moves_recreated]
-            if ((moves and not moves_recreated)
-                        or (moves and moves_recreated
-                            and sorted(moves) != sorted(moves_recreated))):
-                continue
-            invoices = [i for i in sale.invoices + sale.invoices_ignored
-                if i.state != 'draft']
-            invoice_recreateds = [i for i in sale.invoices_recreated]
-            if ((invoices and not invoice_recreateds)
-                        or (invoices and invoice_recreateds
-                            and sorted(invoices) != sorted(invoice_recreateds))):
-                continue
-            # in case not continue, set to True
-            res[sale.id] = True
-        return res
+    def get_allow_draft(self, name):
+        if (self.state in ('draft', 'done')
+                or any([m for line in self.lines for m in line.moves
+                        if m.state not in ('draft', 'cancelled')])
+                or any([x for line in self.lines for x in line.invoice_lines
+                        if x.invoice and x.invoice.state not in (
+                            'draft', 'cancelled')])):
+            return False
+        return True
 
     @classmethod
     def draft(cls, sales):
@@ -55,6 +38,7 @@ class Sale(metaclass=PoolMeta):
         InvoiceLine = pool.get('account.invoice.line')
         Invoice = pool.get('account.invoice')
         LineRecreated = pool.get('sale.line-recreated-stock.move')
+        LineIgnored = pool.get('sale.line-ignored-stock.move')
 
         moves = []
         shipments = []
@@ -64,26 +48,26 @@ class Sale(metaclass=PoolMeta):
         for sale in sales:
             if not sale.allow_draft:
                 continue
-            moves.extend([m for line in sale.lines for m in line.moves])
-            shipments.extend([s for s in sale.shipments])
-            shipment_return.extend([s for s in sale.shipment_returns])
-            invoices.extend([i for i in sale.invoice])
-            invoice_lines.extend([il for line in sale.lines
-                for il in line.invoice_lines if not il.invoice])
+            moves += [m for line in sale.lines for m in line.moves]
+            shipments += sale.shipments
+            shipment_return += sale.shipment_returns
+            invoices += sale.invoices
+            invoice_lines += [il for line in sale.lines
+                for il in line.invoice_lines if not il.invoice]
         if moves:
             line_recreateds = LineRecreated.search([
                     ('move', 'in', moves),
                     ])
-            if line_recreateds:
-                LineRecreated.delete(line_recreateds)
+            LineRecreated.delete(line_recreateds)
+            line_ignoreds = LineIgnored.search([
+                    ('move', 'in', moves),
+                    ])
+            LineIgnored.delete(line_ignoreds)
+            LineRecreated.delete(line_recreateds)
             Move.delete(moves)
-        if shipments:
-            Shipment.delete(shipments)
-        if shipment_return:
-            ShipmentReturn.delete(shipment_return)
-        if invoice_lines:
-            InvoiceLine.delete(invoice_lines)
-        if invoices:
-            Invoice.delete(invoices)
+        Shipment.delete(shipments)
+        ShipmentReturn.delete(shipment_return)
+        InvoiceLine.delete(invoice_lines)
+        Invoice.delete(invoices)
 
         super().draft(sales)
