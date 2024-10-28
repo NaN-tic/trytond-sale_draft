@@ -3,6 +3,7 @@
 from trytond.pool import PoolMeta, Pool
 from trytond.model import fields
 from trytond.pyson import Eval
+from trytond.transaction import Transaction
 
 
 class Sale(metaclass=PoolMeta):
@@ -58,16 +59,18 @@ class Sale(metaclass=PoolMeta):
             line_recreateds = LineRecreated.search([
                     ('move', 'in', moves),
                     ])
-            LineRecreated.delete(line_recreateds)
+            with Transaction().set_user(0):
+                LineRecreated.delete(line_recreateds)
             line_ignoreds = LineIgnored.search([
                     ('move', 'in', moves),
                     ])
-            LineIgnored.delete(line_ignoreds)
-            LineRecreated.delete(line_recreateds)
-            Move.delete(moves)
-        Shipment.delete(shipments)
-        ShipmentReturn.delete(shipment_return)
-        InvoiceLine.delete(invoice_lines)
-        Invoice.delete(invoices)
-
+            with Transaction().set_user(0):
+                LineIgnored.delete(line_ignoreds)
+                LineRecreated.delete(line_recreateds)
+                Move.delete(moves)
+        with Transaction().set_user(0):
+            Shipment.delete(shipments)
+            ShipmentReturn.delete(shipment_return)
+            InvoiceLine.delete(invoice_lines)
+            Invoice.delete(invoices)
         super().draft(sales)
