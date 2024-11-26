@@ -7,4 +7,4 @@ from . import sale
 def register():
     Pool.register(
         sale.Sale,
-        module='ingesdata', type_='model')
+        module='sale_draft', type_='model')
