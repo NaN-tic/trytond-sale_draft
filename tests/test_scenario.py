@@ -23,8 +23,6 @@ class Test(unittest.TestCase):
         super().tearDown()
 
     def test(self):
-
-        # Install sale_rule
         activate_modules('sale_draft')
 
         # Create company
