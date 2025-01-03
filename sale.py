@@ -15,18 +15,16 @@ class Sale(metaclass=PoolMeta):
     @classmethod
     def __setup__(cls):
         super().__setup__()
-
         cls._transitions |= set((('processing', 'draft'),))
         cls._buttons['draft']['invisible'] = ~Eval('allow_draft', False)
         cls._buttons['draft']['depends'] += ['allow_draft']
 
     def get_allow_draft(self, name):
         if (self.state in ('draft', 'done')
-                or any([m for line in self.lines for m in line.moves
-                        if m.state not in ('draft', 'cancelled')])
-                or any([x for line in self.lines for x in line.invoice_lines
-                        if x.invoice and x.invoice.state not in (
-                            'draft', 'cancelled')])):
+                or any([s for s in self.shipments
+                    if s.state not in ('draft', 'cancelled', 'waiting')])
+                or any([i for i in self.invoices
+                    if i.state not in ('draft', 'cancelled')])):
             return False
         return True
 
@@ -46,9 +44,13 @@ class Sale(metaclass=PoolMeta):
         shipment_return = []
         invoices = []
         invoice_lines = []
+        # sale module does not prevent to draft a sale with a shipment
+        # so we do it explicitly here
+        to_draft = []
         for sale in sales:
             if not sale.allow_draft:
                 continue
+            to_draft.append(sale)
             moves += [m for line in sale.lines for m in line.moves]
             shipments += sale.shipments
             shipment_return += sale.shipment_returns
@@ -73,4 +75,4 @@ class Sale(metaclass=PoolMeta):
             ShipmentReturn.delete(shipment_return)
             InvoiceLine.delete(invoice_lines)
             Invoice.delete(invoices)
-        super().draft(sales)
+        super().draft(to_draft)
