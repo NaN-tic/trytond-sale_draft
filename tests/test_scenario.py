@@ -125,7 +125,6 @@ class Test(unittest.TestCase):
         self.assertEqual(sale.state, 'processing')
 
         # Create sale to test invoice workflow
-        Sale = Model.get('sale.sale')
         sale = Sale()
         sale.party = customer
         sale.shipment_method = 'order'
