@@ -71,6 +71,8 @@ class Sale(metaclass=PoolMeta):
                 LineRecreated.delete(line_recreateds)
                 Move.delete(moves)
         with Transaction().set_user(0):
+            Shipment.cancel(shipments)
+            ShipmentReturn.cancel(shipment_return)
             Shipment.delete(shipments)
             ShipmentReturn.delete(shipment_return)
             InvoiceLine.delete(invoice_lines)
