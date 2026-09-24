@@ -113,7 +113,7 @@ class Test(unittest.TestCase):
         self.assertEqual(sale.state, 'draft')
         self.assertEqual(len(sale.shipments), 0)
 
-        # Ensure sale does not move to draft if shipment is assigned
+        # Assigned shipments can also be cancelled when drafting the sale.
         sale.click('quote')
         sale.click('confirm')
         self.assertEqual(sale.state, 'processing')
@@ -122,7 +122,9 @@ class Test(unittest.TestCase):
         shipment.click('assign_force')
         self.assertEqual(shipment.state, 'assigned')
         sale.click('draft')
-        self.assertEqual(sale.state, 'processing')
+        self.assertEqual(sale.state, 'draft')
+        self.assertFalse(sale.shipments)
+        self.assertFalse(sale.invoices)
 
         # Create sale to test invoice workflow
         sale = Sale()
