@@ -112,4 +112,4 @@ class Sale(metaclass=PoolMeta):
             remaining_invoices = [i for i in invoices if i.lines]
             Invoice.delete([i for i in invoices if not i.lines])
             Invoice.update_taxes(remaining_invoices)
-        cls._process_invoice_shipment_states(cls.browse(to_draft))
+        cls._process_invoice_fulfillment_states(cls.browse(to_draft))
