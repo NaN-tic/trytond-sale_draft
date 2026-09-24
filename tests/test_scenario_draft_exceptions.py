@@ -7,6 +7,7 @@ from trytond.modules.account.tests.tools import create_chart, get_accounts
 from trytond.modules.company.tests.tools import create_company, get_company
 from trytond.tests.test_tryton import drop_db
 from trytond.tests.tools import activate_modules
+from trytond.transaction import Transaction
 
 
 class TestDraftExceptions(unittest.TestCase):
@@ -197,7 +198,13 @@ class TestDraftExceptions(unittest.TestCase):
 
                 if action == 'receive':
                     # A draft return can already contain a completed move.
-                    moves[0].click('do')
+                    # Prepare it server-side: shipment moves cannot be
+                    # completed individually through the client button.
+                    with Transaction().start(config.database_name, 0,
+                            context=config.context) as transaction:
+                        Move = config.pool.get('stock.move')
+                        Move.do([Move(moves[0].id)])
+                        transaction.commit()
                     sale.click('process')
                     self.assertEqual(sale.shipment_state, 'partially shipped')
                     shipment_return.reload()

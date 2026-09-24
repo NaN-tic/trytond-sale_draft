@@ -208,7 +208,7 @@ class TestDraftCompletedShipment(unittest.TestCase):
 
         customer = Party(name='Invoice on Shipment')
         customer.save()
-        sale = create_sale(customer, invoice_method='shipment')
+        sale = create_sale(customer, invoice_method='fulfillment')
         self.assertFalse(sale.invoices)
         self.assertTrue(sale.allow_draft)
         sale.click('draft')
