@@ -1,5 +1,6 @@
 # The COPYRIGHT file at the top level of this repository contains the full
 # copyright notices and license terms.
+from trytond.model import ModelView
 from trytond.pool import Pool, PoolMeta
 
 
@@ -7,6 +8,7 @@ class Sale(metaclass=PoolMeta):
     __name__ = 'sale.sale'
 
     @classmethod
+    @ModelView.button
     def draft(cls, sales):
         Shipment = Pool().get('stock.shipment.out')
         shipments = [shipment for sale in sales if sale.allow_draft
