@@ -5,7 +5,7 @@ from trytond.i18n import gettext
 from trytond.pool import PoolMeta, Pool
 from trytond.model import fields
 from trytond.pyson import Eval
-from trytond.transaction import Transaction
+from trytond.transaction import Transaction, without_check_access
 
 
 class Sale(metaclass=PoolMeta):
@@ -112,4 +112,5 @@ class Sale(metaclass=PoolMeta):
             remaining_invoices = [i for i in invoices if i.lines]
             Invoice.delete([i for i in invoices if not i.lines])
             Invoice.update_taxes(remaining_invoices)
-        cls._process_invoice_fulfillment_states(cls.browse(to_draft))
+        with without_check_access():
+            cls._process_invoice_fulfillment_states(cls.browse(to_draft))

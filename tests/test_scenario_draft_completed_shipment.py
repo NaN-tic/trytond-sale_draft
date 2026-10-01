@@ -236,7 +236,10 @@ class TestDraftCompletedShipment(unittest.TestCase):
                 invoice, = sale.invoices
                 if invoice_state == 'numbered':
                     Invoice._proxy.write([invoice.id],
-                        {'number': 'TEST-001'}, config.context)
+                        {'number': 'TEST-001'}, {
+                            **config.context,
+                            '_check_access': False,
+                            })
                     invoice.reload()
                     self.assertEqual(invoice.state, 'draft')
                     self.assertEqual(invoice.number, 'TEST-001')
